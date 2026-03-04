@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# PyTest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Résultats du scanner
+TP_Scan-Port/ports.json
+
+# IDE
+.vscode/
+.idea/
