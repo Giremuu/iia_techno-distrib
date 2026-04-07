@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Socket.IO chat</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: 'Courier New', Courier, monospace;
+        background: #080c10;
+        color: #a0ffb0;
+        padding-bottom: 4rem;
+        overflow-x: hidden;
+      }
+
+      /* Parallax background */
+      #parallax-bg {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      .geo {
+        position: absolute;
+        opacity: 0.12;
+        stroke: #00ff41;
+        fill: none;
+        stroke-width: 1;
+        animation: drift linear infinite;
+      }
+
+      @keyframes drift {
+        from { transform: translateY(0) rotate(0deg); }
+        to   { transform: translateY(-120vh) rotate(360deg); }
+      }
+
+      /* Scanline overlay */
+      #parallax-bg::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent,
+          transparent 3px,
+          rgba(0, 255, 65, 0.015) 3px,
+          rgba(0, 255, 65, 0.015) 4px
+        );
+      }
+
+      /* Grid lines */
+      #grid {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image:
+          linear-gradient(rgba(0,255,65,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,255,65,0.04) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      /* Messages list */
+      #messages {
+        position: relative;
+        z-index: 1;
+        list-style: none;
+        padding: 1rem 1rem 0.5rem;
+      }
+
+      #messages > li {
+        padding: 0.5rem 1rem;
+        border-left: 2px solid #00ff41;
+        margin-bottom: 0.4rem;
+        background: rgba(0, 255, 65, 0.04);
+        color: #c8ffd4;
+        letter-spacing: 0.03em;
+        transition: background 0.2s;
+      }
+
+      #messages > li:hover {
+        background: rgba(0, 255, 65, 0.09);
+      }
+
+      #messages > li .author {
+        color: #00ff41;
+        font-weight: bold;
+        margin-right: 0.5rem;
+        text-shadow: 0 0 8px #00ff4188;
+      }
+
+      /* Input bar */
+      #form {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        display: flex;
+        height: 3.5rem;
+        padding: 0.4rem 0.75rem;
+        background: rgba(8, 12, 16, 0.85);
+        border-top: 1px solid #00ff4133;
+        backdrop-filter: blur(12px);
+        gap: 0.5rem;
+      }
+
+      #input {
+        flex-grow: 1;
+        background: rgba(0, 255, 65, 0.06);
+        border: 1px solid #00ff4155;
+        border-radius: 3px;
+        padding: 0 1rem;
+        color: #a0ffb0;
+        font-family: inherit;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      #input:focus {
+        border-color: #00ff41;
+        box-shadow: 0 0 10px #00ff4133;
+      }
+
+      #input::placeholder { color: #2a4a30; }
+
+      #form > button {
+        background: transparent;
+        border: 1px solid #00ff41;
+        color: #00ff41;
+        padding: 0 1.25rem;
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: background 0.2s, box-shadow 0.2s;
+      }
+
+      #form > button:hover {
+        background: rgba(0, 255, 65, 0.12);
+        box-shadow: 0 0 12px #00ff4155;
+      }
+
+      /* Username prompt overlay */
+      #username-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 12, 16, 0.95);
+      }
+
+      #username-box {
+        border: 1px solid #00ff41;
+        padding: 2rem 2.5rem;
+        background: #0a0e12;
+        box-shadow: 0 0 40px #00ff4133;
+        text-align: center;
+        min-width: 300px;
+      }
+
+      #username-box h2 {
+        color: #00ff41;
+        font-size: 1rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+        text-shadow: 0 0 10px #00ff41;
+      }
+
+      #username-box p {
+        color: #3a5a40;
+        font-size: 0.75rem;
+        margin-bottom: 1.2rem;
+        letter-spacing: 0.05em;
+      }
+
+      #username-input {
+        width: 100%;
+        background: rgba(0, 255, 65, 0.06);
+        border: 1px solid #00ff4155;
+        border-radius: 2px;
+        padding: 0.5rem 0.75rem;
+        color: #a0ffb0;
+        font-family: inherit;
+        font-size: 0.9rem;
+        outline: none;
+        margin-bottom: 1rem;
+        transition: border-color 0.2s;
+      }
+
+      #username-input:focus { border-color: #00ff41; }
+
+      #username-box button {
+        width: 100%;
+        background: transparent;
+        border: 1px solid #00ff41;
+        color: #00ff41;
+        padding: 0.5rem;
+        font-family: inherit;
+        font-size: 0.85rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.2s, box-shadow 0.2s;
+      }
+
+      #username-box button:hover {
+        background: rgba(0, 255, 65, 0.12);
+        box-shadow: 0 0 12px #00ff4155;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Username overlay -->
+    <div id="username-overlay">
+      <div id="username-box">
+        <h2>// IDENTIFY</h2>
+        <p>Entrez votre identifiant pour accéder au réseau</p>
+        <input id="username-input" type="text" placeholder="PSEUDO" maxlength="20" autocomplete="off" />
+        <button id="username-submit">CONNECTER</button>
+      </div>
+    </div>
+
+    <!-- Parallax background -->
+    <div id="parallax-bg">
+      <svg id="geo-svg" width="100%" height="100%"></svg>
+    </div>
+    <div id="grid"></div>
+
+    <ul id="messages"></ul>
+
+    <form id="form" action="">
+      <input id="input" autocomplete="off" placeholder="Message..." />
+      <button type="submit">Envoyer</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      // --- Username overlay ---
+      const overlay      = document.getElementById('username-overlay');
+      const usernameInput = document.getElementById('username-input');
+      const usernameSubmit = document.getElementById('username-submit');
+
+      let username = '';
+
+      usernameInput.focus();
+
+      function confirmUsername() {
+        const val = usernameInput.value.trim();
+        if (!val) return;
+        username = val;
+        overlay.style.display = 'none';
+        initSocket();
+      }
+
+      usernameSubmit.addEventListener('click', confirmUsername);
+      usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmUsername(); });
+
+      // --- Geometric parallax background ---
+      const svg = document.getElementById('geo-svg');
+      const NS  = 'http://www.w3.org/2000/svg';
+
+      const shapes = [];
+
+      function randomBetween(a, b) { return a + Math.random() * (b - a); }
+
+      function createShape() {
+        const type = Math.random() < 0.5 ? 'polygon' : 'rect';
+        const el = document.createElementNS(NS, type);
+        const size = randomBetween(20, 90);
+        const x = randomBetween(0, window.innerWidth);
+        const y = randomBetween(window.innerHeight, window.innerHeight * 2);
+
+        el.classList.add('geo');
+        el.style.animationDuration = `${randomBetween(18, 45)}s`;
+        el.style.animationDelay    = `-${randomBetween(0, 40)}s`;
+
+        if (type === 'polygon') {
+          // Triangle or hexagon
+          const sides = Math.random() < 0.5 ? 3 : 6;
+          const pts = [];
+          for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * 2 * Math.PI - Math.PI / 2;
+            pts.push(`${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`);
+          }
+          el.setAttribute('points', pts.join(' '));
+        } else {
+          el.setAttribute('x', x - size / 2);
+          el.setAttribute('y', y - size / 2);
+          el.setAttribute('width', size);
+          el.setAttribute('height', size);
+        }
+
+        svg.appendChild(el);
+        shapes.push({ el, baseX: x, baseY: y });
+      }
+
+      for (let i = 0; i < 22; i++) createShape();
+
+      // Parallax on mouse move
+      document.addEventListener('mousemove', (e) => {
+        const dx = (e.clientX / window.innerWidth  - 0.5) * 30;
+        const dy = (e.clientY / window.innerHeight - 0.5) * 30;
+        shapes.forEach(({ el }, i) => {
+          const depth = 0.3 + (i % 5) * 0.15;
+          el.style.transform = `translateX(${dx * depth}px)`;
+        });
+      });
+
+      // --- Socket.IO chat ---
+      let socket;
+      let counter = 0;
+
+      function initSocket() {
+        socket = io({
+          ackTimeout: 10000,
+          retries: 3,
+          auth: { serverOffset: 0, username }
+        });
+
+        const form     = document.getElementById('form');
+        const input    = document.getElementById('input');
+        const messages = document.getElementById('messages');
+
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (input.value) {
+            const clientOffset = `${socket.id}-${counter++}`;
+            socket.emit('chat message', input.value, clientOffset);
+            input.value = '';
+          }
+        });
+
+        socket.on('chat message', (msg, serverOffset, author) => {
+          const item   = document.createElement('li');
+          const span   = document.createElement('span');
+          span.classList.add('author');
+          span.textContent = `${author || 'Anonyme'} >`;
+          item.appendChild(span);
+          item.appendChild(document.createTextNode(msg));
+          messages.appendChild(item);
+          window.scrollTo(0, document.body.scrollHeight);
+          socket.auth.serverOffset = serverOffset;
+        });
+      }
+    </script>
+  </body>
+</html>

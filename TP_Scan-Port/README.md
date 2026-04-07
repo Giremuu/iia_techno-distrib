@@ -13,13 +13,13 @@ Scanner de ports TCP en Python + tests unitaires PyTest.
 ## Utilisation
 
 ```bash
-python scanner.py <ip>
+python3 scanner.py <ip>
 ```
 Où l'IP est notre cible à tester
 
 **Exemple :**
 ```bash
-python scanner.py 127.0.0.1
+python3 scanner.py 127.0.0.1
 ```
 Les résultats sont sauvegardés dans `ports.json`.
 
