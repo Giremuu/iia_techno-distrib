@@ -74,7 +74,7 @@ web-68d995574f-vpr9p   1/1     Running   0          40s
 ```
 
 > **Définition** : un **pod** correspond à une instance de l'application.  
-> Ici, un seul pod Nginx tourne — une seule instance.
+> Ici, un seul pod Nginx tourne
 
 ---
 
