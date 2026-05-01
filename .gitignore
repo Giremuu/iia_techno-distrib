@@ -17,3 +17,5 @@ TP_Scan-Port/ports.json
 # IDE
 .vscode/
 .idea/
+
+node_modules/
